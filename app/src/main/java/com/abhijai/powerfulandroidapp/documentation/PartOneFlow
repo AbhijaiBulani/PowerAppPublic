@@ -1,0 +1,205 @@
+-> We have LiveDataCallAdapter to change the Call of Retrofit into LiveData.
+-> The return type of our Api is : LiveData<GenericApiResponse>
+-> GenericApiResponse :
+        To understand GenericApiResponse we have to see the working of LiveDataCallAdapter:
+        *) Since we have used LiveDataCallAdapterFactory() as addCallAdapterFactory, so whenever we(Retrofit)
+           hit the api we get Result in Call of retrofit.
+           -> Now This call object is converted into LiveData<GenericApiResponse> by overriding the
+              onResponse() and onFailure() methods of Retrofit Callback interface.
+        *) LiveDataCallAdapter uses onResponse and onFailure to create GenericApiResponse and wrap it into
+           LiveData.
+
+        *) GenericApiResponse is a sealed class which has three subclasses:
+            a)ApiSuccessResponse.
+            b)ApiErrorResponse.
+            c)ApiEmptyResponse.
+
+-> NetworkBoundResource uses GenericApiResponse
+
+-> And this NetworkBoundResource is used in AuthRepository.
+
+-> So Now lets see the Flow wrt MVI
+
+    -> As we know that for any module we need 2 containers if we are using MVI:
+        i)StateEvent
+        ii)ViewState
+
+    -> For AuthModule we have :
+        i)AuthStateEvent
+        ii)AuthViewState
+
+    -> And in MVI we know that we send StateEvent from UI to Repository and
+       observe ViewState received from Repository to UI.
+
+     -> Since we observe viewState in UI and viewState has nothing to express
+            a)Loading state
+            b)Error state
+            c)Success State
+        We need something to wrap viewState.
+
+     -> So we wraps ViewState into DataState.
+
+     -> So how DataState express error,loading and success states.
+
+        *) DataState has three methods :
+            i)error():(response: Response): DataState<T>{at runtime it will be (response: Response): DataState<AuthViewState>}
+            ii)loading(isLoading: Boolean, cachedData: T? = null): DataState<T>
+            iii)data(data: T? = null, response: Response? = null): DataState<T>
+
+            -> DataState class uses Data class to show data and StateError class to show error.
+            -> And this Data and StateError class uses Response to show dialog or toast according to the data received from server or DB.
+
+
+Ques -> What is the relation between Data, StateError and Response class?
+Ans -> The relationship between Data and StateError is :
+        (.)They both is defined inside StateResource class.
+        (.)Response class is also defined inside StateResource class.
+
+        -> There is direct relation b/w Data class and Response class,
+                i.e : Data class constructor has Response in its parameter wrapped in Event class.
+                    Ques -> Now what is Event class?
+                    Ans -> The main task of Event class is don't show content if it is viewed or used once.
+                        -> Event class has two methods for contents :
+                                a)dataEvent to wrap data in Event
+                                b)responseEvent to wrap response in Event
+
+                        -> Event class has one method to show content only once :
+                            a)getContentIfNotHandled()
+
+                *) Data class has two parameters in its constructor i.e:
+                    -> data class Data<T>(val data: Event<T>?, val response: Event<Response>?)
+
+                    -> So if data is null in its parameter then Data class uses Response.
+                       And if data is not null then Data class uses only data not Response.
+
+        -> Relation between StateError and Response classes?
+          Ans -> StateError uses Response as a parameter.
+                    i.e -> data class StateError(val response: Response)
+
+        Ques -> How Response class works?
+        Ans -> The main task of Response class is to show Dialog and Toast and it completes its task by using two parameters :
+                i)message
+                ii)ResponseType
+
+                Ques -> What is ResponseType?
+                Ans -> ResponseType is a Sealed class with three subClasses :
+                    i)Toast
+                    ii)Dialog
+                    iii)None
+
+
+
+        ***** So that's how we show dialog or toast in UI *****
+
+
+
+----------------------------------------------------------------------------------------------------------------
+
+
+Ques -> What are the events in AuthStateEvent(sealed class)?
+And -> we have three state events(sub classes) for AuthModule inside AuthStateEvent sealed class:
+        i)LoginAttempt(email,password):AuthStateEvent
+        ii)RegisterAttempt(email,username,password,confirmPassword):AuthStateEvent
+        iii)CheckPreviousAuthEvent{to check if user already successfully logined before}:AuthStateEvent
+
+Ques -> What are the different viewStates in AuthViewState?
+And ->  We have three ViewStates for AuthModel :
+            i)RegistrationFields
+            ii)LoginFields
+            iii)AuthToken
+
+
+
+Ques -> How AuthViewModel is shared b/w all the Fragments?
+Ans -> We have implemented authViewModel inside BaseAuthFragment and other 4 fragments extend
+       BaseAuthFragment. So because of the inheritance other 4 fragments also receives authViewmodel.
+
+
+
+---------------------------- How Navigation is working for AuthModule --------------------------------------
+
+1 -> We have created a navigation folder and inside it we have auth_nav_graph.xml
+2 -> And inside auth_nav_graph we drag and drop the fragments and decides the flow b/w fragments.
+3 -> Now we need a host which is going to host our navigation graph.
+        host -> auth_nav_graph(activity_auth.xml)
+
+-----------------------------------------------------------------------------------------------------------
+
+
+                                            FLOW AFTER ALL SETUP
+
+1 -> When app starts AuthActivity gets launch.
+2 -> AuthActivity executes mainly two methods :
+        i)subscribeObserver()
+        ii)checkPreviousAuthUser()
+3 -> subscribeObserver() does not do any thing yet because we have not executed any event but
+     checkPreviousAuthUser() sets the CheckPreviousAuthEvent of AuthStateEvent.
+
+4 -> Because of the execution of AuthStateEvent, _stateEvent get active inside BaseViewModel and executes the Transformations.
+
+        (_EXTRA_POINT) -> Transformation inside BaseViewModel takes StateEvent and returns the ViewState.
+
+5 -> And this Transformation inside BaseViewModel trigger the handleStateEvent(stateEvent: AuthStateEvent) inside AuthViewModel.
+
+6 -> handleStateEvent() first TypeChecks(using is operator of kotlin), which AuthStateEvent is triggered by the UI.
+     Currently CheckPreviousAuthEvent is triggered.
+
+7 -> And because of the triggering of CheckPreviousAuthEvent handleStateEvent() calls the authRepository.checkPreviousAuthUser.
+
+8 -> And this checkPreviousAuthUser() inside AuthRepository returns the LiveData<DataState<AuthViewState>> to the authViewModel.
+
+        Ques -> How checkPreviousAuthUser() prepares the LiveData<DataState<AuthViewState>> ?
+        Ans -> First it checks do we have any email saved in out Room DB ?
+                if yes -> we move forward
+                if no -> noTokenFound():LiveData<DataState<AuthViewState>> gets executed and we return.
+
+               -> when we have found the email inside shred preference then NetworkBoundResource comes into picture.
+               -> we implement all the abstract methods of NetworkBoundResource<Void,AuthViewState>
+               -> Since we don't need Server in this case(CheckPreviousAuthEvent), we need Room Db operations
+                  that's why our main focus is on createCacheRequestAndReturn() of NetworkBoundResource.
+               -> createCacheRequestAndReturn() uses DataState.error() or DataState.data() to completeJob inside NetworkBoundResource.
+               -> onCompleteJob() inside NetworkBoundResource<> takes DataState<ViewStateType> as parameter and sets result inside NetworkBondResource<>.
+                        Ques -> What is result inside NetworkBoundResource<>?
+                        Ans -> protected var result = MediatorLiveData<DataState<ViewStateType>>()
+
+               -> This result is get returned to the repository and type casted into LiveData using asLiveData().
+
+9 -> LiveData<DataState<AuthViewState>> is returned to the handleStateEvent() of ViewModel and this make changes in dataState of BaseViewModel.
+        Ques -> What is the dataState of BaseViewModel ?
+        Ans -> val dataState: LiveData<DataState<ViewState>>
+
+10 -> And our AuthActivity is observing this dataState of BaseViewModel inside subscribeObserver() with the help of authViewModel.
+
+11 -> Now we have to separate authTokenModel from dataState of BaseViewModel.
+      type of dataState will be -> LiveData<DataState<AuthViewState>>
+
+12 -> Now we pass authTokenModel into setPreviousAuthState(){setter for one of the member of AuthViewState} of authViewModel.
+
+        **REMEMBER**
+            @ We have to create setters inside ViewModel for every members of ViewStates we need for any module inside our application.
+            @ We have three members inside AuthViewState and we have three setters for each one of them inside AuthViewModel.
+        *******************************************************************************************************************************
+
+13 -> Now this setPreviousAuthState() of AuthViewModel sets value of _viewState, and this _viewState gets observed inside AuthActivity.
+14 -> The observation of _viewState executes the sessionManager.login(authToken)
+15 -> This sessionManager.login(authToken) sets the value of cachedToken, which we are observing inside AuthActivity.
+14 -> This cachedToken decides that user will be navigated to the MainActivity or not.
+
+    ---------------------------------------------------
+    SIMILARLY other AuthStateEvents also get executed.
+    ---------------------------------------------------
+
+                                                        SUMMARY
+
+     @ We trigger StateEvents from UI and Observe ViewStates in UI.
+
+     @ We trigger AuthStateEvents and propagates it from AuthActivity -> AuthViewModel
+        (*) AuthViewModel decides which method of AuthRepository to call on the basis of the AuthStateEvent it received from AuthActivity.
+        (*) And AuthRepository uses NetworkBoundResource to generate the demanded Result(ViewState)
+
+    @ Now the AuthViewState wrapped in DataState generated by NetworkBoundResource is propagated back to AuthViewModel and observed in AuthActivity.
+        (*) NetworkBoundResource -> AuthRepository -> AuthViewModel
+
+
+Ques -> How login is working?
+Ans -> We have

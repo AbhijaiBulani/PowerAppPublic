@@ -1,0 +1,6 @@
+Whenever we rotate the screen api get's hit.(AccountFragment)
+
+getContentIfNotHandled() of Event class always return false
+
+
+

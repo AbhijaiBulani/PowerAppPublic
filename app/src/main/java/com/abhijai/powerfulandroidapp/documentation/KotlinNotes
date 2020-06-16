@@ -1,0 +1,77 @@
+Ques -> What is out in kotlin?
+Ans -> We can use the out keyword on the generic type which means we can assign this reference to any of its supertypes.
+        *) For e.g : Class<out ViewModel> {in kotlin} And Class<? extends ViewModel> {in java} are same.
+
+
+
+Ques -> What is ?: in kotlin?
+Ans -> The Elvis operator(?:) in Kotlin is an operator that receives two inputs and returns the first argument if
+       it is non-null or the second one otherwise. It is fancily called the null-coalescing operator.
+       It is a variant of the ternary operator but for null-safety checking.
+
+//---------------------------------------------------------------------------------------------------
+
+Ques -> What is ?. in kotlin?
+Ans -> (?.) in kotlin is known as Safe Call Operator. See e.g below
+        val a = "Kotlin"
+        val b: String? = null
+        println(b?.length)
+        println(a?.length) // Unnecessary safe call
+
+        OUTPUT -> for first println -> null
+                  for second println -> 6
+
+        (*) -> This returns b.length if b is not null, and null otherwise.
+
+        (*) -> To perform a certain operation only for non-null values, you can use the safe call operator together with let.
+
+        For e.g :
+        val listWithNulls: List<String?> = listOf("Kotlin", null)
+        for (item in listWithNulls) {
+            item?.let { println(it) } // prints Kotlin and ignores null
+        }
+        OUTPUT -> Kotlin
+
+//---------------------------------------------------------------------------------------------------------------------------------------
+
+
+Ques -> How kotlin helps in NPE ?
+Ans -> https://kotlinlang.org/docs/reference/null-safety.html
+
+Ques -> what is when in kotlin?
+Ans -> Kotlin, when expression is a conditional expression which returns the value.
+       Kotlin, when expression works as a switch statement of other language (Java, C++, C).
+
+Ques -> When to use (is) and when to use (as) in when expression?
+Ans -> is X -> is the equivalent of instanceof X, is is type checking.
+       foo as X -> is the equivalent of ((X) foo), as is type casting.
+
+
+Ques -> What is sealed class?
+Ans -> Basically it is similar to enum, defining bunch of objects returning same type.
+       (*) A sealed class allows you to represent constrained hierarchies in which an object can only be of one of the given types.
+           That is, we have a class with a specific number of subclasses.
+
+
+Ques -> What is data class ?
+Ans -> https://www.callicoder.com/kotlin-data-classes/
+
+
+Ques -> What is (by) in kotlin ?
+Ans -> In simple words, you can understand by keyword as provided by.
+        For e.g -> jam is provided by Mom.
+
+        -> From the perspective of property consumer, val is something that has getter (get) and var is something that has
+           getter and setter (get, set). For each var property there is a default provider of get and set methods that we
+           don't need to specify explicitly.
+
+           But, when using by keyword you are stating that this getter/getter&setter is provided elsewhere
+           (i.e. it's been delegated), it's provided by the function that comes after by.
+
+           So, instead of using this built-in get and set methods, you are delegating that job to some explicit function.
+
+
+Ques -> What is lazy in kotlin?
+Ans -> https://medium.com/til-kotlin/how-kotlins-delegated-properties-and-lazy-initialization-work-552cbad8be60#:~:text=lazy%20Initialization,first%20used%2C%20not%20its%20declaration.
+
+

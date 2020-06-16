@@ -1,0 +1,105 @@
+https://medium.com/@vepetruskova/the-new-android-in-app-navigation-f7bfbe925b9
+
+https://developer.android.com/guide/navigation
+
+Each NavHostFragment has a NavController that defines valid navigation within the navigation host.
+
+NavGraph — a collection of destinations. It can be inflated from layout file or created programmatically.
+            You can have multiple navigation graphs in your application and they can be also nested.
+NavHost — an interface serving as a container that hosts the NavController.
+NavController — class managing navigation within NavHost by interacting with NavGraph.
+
+NavHostFragment — implementation of NavHost for creating fragment destinations. It has its own NavController and navigation graph.
+                Typically you would have one NavHostFragment per activity.
+
+Note :
+        We don't have fragment inside <FrameLayout> in activity_main
+        But we have fragment inside <FrameLayout> in activity_auth and this fragment is NavigationHostFragment
+
+
+
+------------------------------------------------------------- Part Two Is All About BottomNavigation --------------------------------------
+
+-> We have created a bottom navigation similar to Instagram for the MainModule.
+
+-> Android Jetpack NavigationComponent does not give feature like Instagram.
+
+-> That's why we have to build the CustomClass to manage the Navigation between Fragments.
+
+-> CustomClass Name is BottomNavController and this class helps in only MainModule.
+
+-> So now lets see the setup, for the BottomNavigation:
+
+   i)  we have build the three navigation graphs :
+            a) nav_blog (BlogFragment, CreateFragment, UpdateFragment)
+            b) nav_account(AccountFragment, ChangeFragment, UpdateAccountFragment)
+            c) nav_create_blog(CreateBlogFragment)
+
+   ii)  Now we created the main_bottom_navigation_menu inside menu package in res directory.
+
+        -> The most IMPORTANT thing we have to remember here is id's, id of each item inside
+           this menu have to be same of each NavGraph(For the fragments we are using inside MainModule).
+
+        -> For e.g we have three NavGraphs for MainModule and that's why we have three items inside : main_bottom_navigation_menu
+        -> Each item in this menu is for each NavGraph used inside MainModule.
+
+        -> Home item id is matched with the id of nav_blog,
+           Account item id is matched with the id of nav_account,
+           Create item id is matched with the id of nav_create_blog.
+
+   iii)  Now we have used BottomNavigationView with (app:menu="@menu/main_bottom_navigation_menu") inside activity_main.
+
+   iv) NOTE :
+              We have used old library for the NavigationComponent because new one are making app crash when we use BackButton back and forth.
+
+    v) We also have separate BaseFragment for each of the NavController used inside MainModule.
+
+    ******************** Now lets observe BottomNavController wrt functions and interfaces ********************
+
+
+    -> First of all this class is maintaining two types of BackStacks :
+
+        Type 1 : BackStack for the fragments inside Each NavHost(NavHostFragment).
+                    (.) NavHost is interface and NavHostFragment is its implementation.
+
+        Type 2 : BachStack for NavHost itself.
+
+    -> we have class BackStack inside BottomNavController which maintains Type 2 backStack.
+
+    -> we have method onNavigationItemSelected() which helps to maintain Type 1 backStack.
+            a) onNavigationItemSelected() maintains Type1 backStack with the help of NavHostFragment.
+            b) inside onNavigationItemSelected() there is no code that shows how the navigation inside
+               NavHost(interface) working.
+               for e.g -> There is no code inside onNavigationItemSelected() that shows how we navigate from
+                          AccountFragment to ChangePasswordFragment.
+
+            c) so how we are navigation from AccountFragment to ChangePasswordFragment, the ans is :
+               The code is return inside AccountFragment. But there is no code inside onNavigationItemSelected().
+
+            d) There is no code inside onNavigationItemSelected() b'coz we have NavHostFragment in it and this
+               NavHostFragment is managing the navigation. the definition of NavHostFragment is :
+
+               "NavHostFragment provides an area within your layout for self-contained navigation to occur."
+
+            e) I think the power of NavHostFragment is in its definition, specifically in ->  "self-contained navigation"
+               its managing the navigation implicitly and that's why we don't have any code related to the navigation inside
+               NavHostFragment in onNavigationItemSelected().
+
+
+
+
+    **************************** Now Let's See The interfaces used in BottomNavController *******************************
+
+     -> interface OnNavigationItemChanged(used to change the color of the menu item inside BottomNavigation in activity_main)
+     -> interface NavGraphProvider(used to create new NavHostFragment by providing the NavGraph id's implemented in MainActivity)
+     -> interface OnNavigationGraphChanged(used to expand AppBar whenever different menu item is clicked inside BottomNavigation,
+                                            and it will also be used if user wants to cancel any running job )
+     -> interface OnNavigationReSelectedListener(used to get back to the starting(0th index) fragment when user selects same icon again)
+
+     *********************************************************************************************************************
+
+
+
+
+
+

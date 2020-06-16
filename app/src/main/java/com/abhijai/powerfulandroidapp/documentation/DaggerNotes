@@ -1,0 +1,274 @@
+Dagger documentation -> https://dagger.dev/dev-guide/
+
+Ques -> What is Dagger ?
+Ans -> Dagger constructs instances of your application classes and satisfies their dependencies.
+       It uses the javax.inject.Inject annotation to identify which constructors and fields it is interested in.
+
+       -> Dagger 1 used the Reflection Concept to verify the Dependency Graph at Runtime which was costly for Android.
+       -> Dagger 2 uses the normal Concept to verify the Dependency Graph at Compile Time which make it easy to debug.
+
+
+------------------------------------------- INJECT ---------------------------------------
+Ques -> what is @Inject ?
+Ans -> Use @Inject to annotate the constructor that Dagger should use to create instances of a class.
+
+       Basically when we annotate Our class constructor with @Inject ->
+       we tells the Dagger that how we want you(Dagger) to construct the object of this class.
+
+        *)If your class has @Inject-annotated fields but no @Inject-annotated constructor,
+          Dagger will inject those fields if requested, but will not create new instances.
+          Add a no-argument constructor with the @Inject annotation to indicate that Dagger may create instances as well.
+
+        *)But @Inject doesn’t work everywhere:
+          -> Interfaces can’t be constructed.
+          -> Third-party classes can’t be annotated.
+          -> Configurable objects must be configured!
+
+-------------------------------------------- INJECT END -----------------------------------
+
+
+
+
+
+------------------------------------------- PROVIDES -----------------------------------
+Ques -> What is @Provides ?
+Ans -> For above cases where @Inject is insufficient or awkward, use an @Provides-annotated method to satisfy a dependency.
+       The method’s return type defines which dependency it satisfies.
+
+       -> For example, provideHeater() is invoked whenever a Heater is required:
+            @Provides static Heater provideHeater()
+            {
+              return new ElectricHeater();
+            }
+       -> It’s possible for @Provides methods to have dependencies of their own. This one returns a Thermosiphon whenever a Pump is required:
+                @Provides static Pump providePump(Thermosiphon pump) {
+                  return pump;
+                }
+
+       -> Annotate an @Provides method or injectable class with @Singleton.
+          The graph will use a single instance of the value for all of its clients.
+
+
+       -> Providers are the wrapper object that knows how to create the instance of the object they are wrapping.
+            For e.g -> From Dagger Generated Code -> private Provider<Driver> driverProvider;
+
+------------------------------------------ PROVIDES END --------------------------------
+
+
+
+-------------------------------- BINDS ----------------------------------------
+
+-> When we don't need a method body for a method inside @Module we don't need to use @Provides.
+    For e.g -> @Binds
+                abstract Engine bindEngine(PetrolEngine engine);  {where PetrolEngine extends Engine}
+
+-> Benefit
+        a) Dagger never creates a implementation of Bind's method and also don't create a implementation
+           for the @Module class which has only @Binds methods. Because @Binds methods are abstract and the @Modules
+           which are having @Binds methods are also abstract .
+
+        b) So if Dagger never creates the implementations for the above both(@Binds and @Modules which have only @Binds)
+           then how we get the result :
+                -> Dagger never calls the @Binds methods it directly instantiate the PetrolEngine which give us better performance
+                   and more concise code.
+
+        c) So whenever you want to binds only the implementation to an interface then you should use @Binds instead of @Provides.
+
+        d) And these @Binds methods only take Single argument and this argument will be the implementation(PetrolEngine) for the interface(Engine).
+
+        e) You can't use @Provides and @Binds in the same Module because @Provides need the instance of the @Module but @Binds don't need.
+           -> @Binds don't need instance because for @Binds @Modules are abstract and Dagger never create implementation for them.
+           -> But @Modules which have @Provides their implementation is created by the Dagger and it is used by the @Provides.
+
+        f) You can use @Binds and static @Provides in the same @Module.
+
+
+------------------------------- BINDS END -------------------------------------
+
+
+
+
+
+
+
+
+---------------------------------------------- MODULES ------------------------------------------------------
+
+Ques -> What is the use @Module ?
+Ans -> All @Provides methods must belong to a module. These are just classes that have an @Module annotation.
+
+        *) Module is the place where dependencies live then you can add them to the component.
+
+        *) By convention, @Provides methods are named with a provide prefix and module classes are named with a Module suffix.
+
+                @Module
+                class DripCoffeeModule
+                {
+                  @Provides static Heater provideHeater()
+                  {
+                    return new ElectricHeater();
+                  }
+
+                  @Provides static Pump providePump(Thermosiphon pump)
+                  {
+                    return pump;
+                  }
+                }
+
+        *) Modules add objects with the help of @Provide and @Binds in the dependency graph or object graph created by the Component.
+
+
+--------------------------------------------- MODULES END --------------------------------------------------
+
+
+
+Ques -> What is @ContributesAndroidInjector() ?
+Ans ->
+
+
+
+
+------------------------------------- @Component ---------------------------------------
+
+ -> Component is the most important piece of a dagger, basically it is a backbone.
+ -> This is the place from where Activity/Fragments or any other classes get objects what they want to use.
+ -> And for the above task Component create the Dependency graph which is directed acyclic graph(see below).
+
+                           ------> Spark Plugs
+                           ------> Cylinders
+            ------- Engine ------> Block
+    CAR-----
+            ------- Wheels -------> Tires
+                           -------> Rims
+
+
+ -> So the Component creates the object which we need and stores them and then provides them to us.
+ -> You can also call it the Injector also.
+ ->
+
+
+
+
+----------------------------------- Component End ---------------------------------------
+
+
+
+
+
+------------------------------------ @BindInstance ----------------------------
+-> we can get variable into our dependency graph at run time with the help of @BindInstance
+
+
+
+----------------------------------------@BindInstance End----------------------
+
+
+
+
+
+---------------------------------  @SingleTon ----------------------------
+
+-> If we want our class to be Singleton mark it with the @SingleTon annotation.
+-> But if you have marked only the class but not @Component you will get the below error :
+        Error -> (unscoped) may not reference scoped binding.
+
+-> If your class does not marked with @Inject i.e Third party library class.
+   And you want to mark it with @Singleton then you have to mark the @Provides with @Singleton.
+   Because for third party library classes we are unable to use @Inject but we create @Modules with @Provides for them.
+
+   And for best practice we don't mark @Binds with @Singleton but we can mark.
+    -> So for e.g if we have :
+                    @Binds
+                    abstract Engine bindEngine(PetrolEngine engine);  {where PetrolEngines is our class implements Engine}
+        *) So now if we want to make it @Singleton we can mark PetrolEngine constructor with @Inject.
+
+-> Singleton annotation only works in same component. If we have two @Components inside our Application then @Singleton will not work.
+    *) So if you want full application wise @Singleton then you have to instantiate @Component only once in the ApplicationClass
+       because ApplicationClass wraps the whole lifecycle of the App.
+
+
+------------------------------- @SingleTon End --------------------------
+
+
+
+
+
+
+
+
+
+
+------------------------------ CustomScopes ------------------------------
+
+-> When we want CustomScopes ?
+ Ans -> Lets understand it with the example :
+            a) Suppose we have two classes Cars and Driver.
+            b) We want Driver to be @Singleton(we want only one driver for everyCar we own).
+            c) This Driver class is going to be Singleton for whole application lifecycle.
+
+            d) And since this class is retained at the ApplicationLevel so this class is going to live
+               as long as our application lives.
+
+            e) But now we have a situation that we want two type of Singleton,
+                    1 ->  Whole Application scope wise (Driver)
+                    2 ->  Only for Activity Scope (Cars)
+
+            f) So we need a way to apply @Singletons at two different levels
+               for this we need a custom scopes.
+
+-> By default our custom scopes work as same as @Singleton annotation,
+   they tell Dagger only create a single instance of an object within
+   the same component and reuse it whenever it is requested.
+
+
+-> SubComponent can access the whole object graph of its parent
+
+
+-> Scoped object lives as long as its component it can be seen as Singleton in Subcomponent context.
+
+
+-> if you have three scopes in an application than at anytime only one scope will be in execution.
+
+
+
+
+
+
+
+
+----------------------------  CustomScopes End -----------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
